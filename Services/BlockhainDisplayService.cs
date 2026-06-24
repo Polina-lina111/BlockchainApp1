@@ -25,7 +25,7 @@ namespace BlockchainApp1.Services
 
             foreach (var tx in block.Transactions)
             {
-                Console.WriteLine($" Transaction: {tx.From} -> {tx.To}, Amount: {tx.Amount}");
+                Console.WriteLine($" Transaction: {tx.From} -> {tx.To}, Amount: {tx.Amount}, Memo: {tx.Memo}");
             }
             Console.WriteLine(new string('-', 40));
         }

@@ -19,10 +19,10 @@ namespace BlockchainApp1.Services
             this.walletService = walletService;
         }
 
-        public Transaction CreateTransaction(Wallet wallet, string to, decimal ammount, decimal fee)
+        public Transaction CreateTransaction(Wallet wallet, string to, decimal ammount, decimal fee, string memo)
         {
             var transaction = new Transaction(wallet.Address, to, ammount, fee, wallet.PublicKey);
-
+            transaction.Memo = memo;
             byte[] dataToSign = transaction.GetDataSign();
 
             using var ecdsa = System.Security.Cryptography.ECDsa.Create();

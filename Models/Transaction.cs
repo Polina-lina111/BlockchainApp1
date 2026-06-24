@@ -13,6 +13,7 @@ namespace BlockchainApp1.Models
         public string To { get; set; }
         public decimal Amount { get; set; } = 0;
         public decimal Fee { get; set; }
+        public string Memo { get; set; } 
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
         public byte[] Signature { get; set; }
@@ -32,7 +33,7 @@ namespace BlockchainApp1.Models
 
         public byte[] GetDataSign() 
         {
-            string data = $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}";
+            string data = $"{From}:{To}:{Amount}:{Fee}:{Memo}:{Timestamp.ToString("O")}";
             return Encoding.UTF8.GetBytes(data);
         }
 
@@ -40,7 +41,7 @@ namespace BlockchainApp1.Models
         {
             string hexSignature = Signature != null ? BitConverter.ToString(Signature).Replace("-", "") : "null";
 
-            return $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}:{hexSignature}";
+            return $"{From}:{To}:{Amount}:{Fee}:{Memo}:{Timestamp.ToString("O")}:{hexSignature}";
         }
     }
 

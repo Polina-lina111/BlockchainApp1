@@ -65,9 +65,23 @@ namespace BlockchainApp1.Services
 
         public bool AddTransaction(Transaction transaction)
         {
-            bool isValid = _walletService.VerifySingnsture(transaction.GetDataSign(), transaction.Signature, transaction.PublicKey);
+            bool isValid = _walletService.VerifySingnsture(
+                transaction.GetDataSign(),
+                transaction.Signature,
+                transaction.PublicKey);
+
             if (!isValid)
                 return false;
+
+            // Anti-Spam Fee (мінімум 1%)
+            if (transaction.From != "System")
+            {
+                if (transaction.Fee < transaction.Amount * 0.01m)
+                {
+                    Console.WriteLine("Комісія повинна бути не менше 1% від суми.");
+                    return false;
+                }
+            }
 
             if (transaction.From != "System")
             {
