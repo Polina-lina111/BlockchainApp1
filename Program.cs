@@ -7,94 +7,57 @@ namespace BlockchainApp1
     {
         static void Main(string[] args)
         {
-            RunConsensusTest();
+            RunColdHackTest();
         }
 
-        public static void RunConsensusTest()
+        public static void RunColdHackTest()
         {
-
-            var localNode = new BlockChain(1);
-            var hackerNode = new BlockChain(1);
-            var honestNetwork = new BlockChain(1);
+            if (File.Exists("blocks.dat"))
+            {
+                File.Delete("blocks.dat");
+            }
 
             var walletService = new WalletService();
+            var transactionService = new TransactionService(walletService);
 
-            var miner = walletService.CreateWallet("Miner");
+            var alice = walletService.CreateWallet("Alice");
             var hacker = walletService.CreateWallet("Hacker");
-            var pool = walletService.CreateWallet("Pool");
 
-            // ======================================
-            // LOCAL NODE (2 валідні блоки)
-            // ======================================
+            var blockChain = new BlockChain(1);
 
-            localNode.MinePandingTransaction(miner.Address, 50);
-            localNode.MinePandingTransaction(miner.Address, 50);
+            blockChain.MinePandingTransaction(alice.Address, 5);
 
-            // ======================================
-            // HACKER NODE
-            // ======================================
+            var tx = transactionService.CreateTransaction(
+                alice,
+                hacker.Address,
+                5,
+                0.1m);
 
-            hackerNode.MinePandingTransaction(hacker.Address, 50);
+            blockChain.AddTransaction(tx);
 
-            for (int i = 0; i < 5; i++)
-            {
-                hackerNode.Chain.Add(
-                    new Block(
-                        hackerNode.Chain.Count,
-                        new List<Transaction>(),
-                        "fake_prev_hash",
-                        1)
-                    {
-                        Hash = "HACKED_HASH"
-                    });
-            }
+            blockChain.MinePandingTransaction(alice.Address, 5);
 
-            // ======================================
-            // HONEST NETWORK (4 валідні блоки)
-            // ======================================
+            Console.WriteLine("Blockchain saved.");
 
-            honestNetwork.MinePandingTransaction(pool.Address, 50);
-            honestNetwork.MinePandingTransaction(pool.Address, 50);
-            honestNetwork.MinePandingTransaction(pool.Address, 50);
-            honestNetwork.MinePandingTransaction(pool.Address, 50);
+            string text = File.ReadAllText("blocks.dat");
 
-            Console.WriteLine("\n===== QA CONSENSUS CHECK =====\n");
+            text = text.Replace("\"Amount\":5", "\"Amount\":50000");
 
-            // ======================================
-            // Перевірка 1
-            // ======================================
+            File.WriteAllText("blocks.dat", text);
 
-            bool hackerResult = localNode.ReplaceChain(hackerNode.Chain);
+            Console.WriteLine("File hacked.");
 
-            Console.WriteLine("Перевірка 1 (Стійкість до атаки)");
-            Console.WriteLine("ReplaceChain result = " + hackerResult);
-            Console.WriteLine("Local chain length = " + localNode.Chain.Count);
+            var newBlockChain = new BlockChain(1);
 
-            // ======================================
-            // Перевірка 2
-            // ======================================
+            Console.WriteLine();
+            Console.WriteLine("===== QA CHECK =====");
+            Console.WriteLine();
 
-            bool honestResult = localNode.ReplaceChain(honestNetwork.Chain);
+            Console.WriteLine("Перевірка 2 (Chain Count): "
+                              + newBlockChain.Chain.Count);
 
-            Console.WriteLine("\nПеревірка 2 (Консенсус Накамото)");
-            Console.WriteLine("ReplaceChain result = " + honestResult);
-            Console.WriteLine("Local chain length = " + localNode.Chain.Count);
-
-            // ======================================
-            // Перевірка 3
-            // ======================================
-
-            Console.WriteLine("\nПеревірка 3 (Баланс Pool)");
-
-            if (localNode.Balances.ContainsKey(pool.Address))
-            {
-                Console.WriteLine("Pool balance = " +
-                                  localNode.Balances[pool.Address]);
-            }
-            else
-            {
-                Console.WriteLine("Pool wallet not found");
-            }
+            Console.WriteLine("Перевірка 3 (Hacker Balance): "
+                              + newBlockChain.GetBalance(hacker.Address));
         }
     }
 }

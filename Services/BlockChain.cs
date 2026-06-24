@@ -139,18 +139,17 @@ namespace BlockchainApp1.Services
         // метод для перевірки цілісності блокчейну
         public bool IsValid(List<Block> chain)
         {
-            for (int i = 1; i < Chain.Count; i++)
+            for (int i = 1; i < chain.Count; i++)
             {
-                var currentBlock = Chain[i];
+                var currentBlock = chain[i];
+                var previousBlock = chain[i - 1];
 
-                var previousBlock = Chain[i - 1];
-                // перевірка правильності хешу блоку 
                 if (currentBlock.Hash != _hashingService.ComputeHash(currentBlock))
                     return false;
-                // перевірка звязку між блоками
+
                 if (currentBlock.PrevHash != previousBlock.Hash)
                     return false;
-                // перевірка складності майнінгу
+
                 if (!currentBlock.Hash.StartsWith(new string('0', currentBlock.Difficulty)))
                     return false;
 
@@ -158,12 +157,17 @@ namespace BlockchainApp1.Services
                 {
                     if (transaction.From != "System")
                     {
-                        bool isValid = _walletService.VerifySingnsture(transaction.GetDataSign(), transaction.Signature, transaction.PublicKey);
+                        bool isValid = _walletService.VerifySingnsture(
+                            transaction.GetDataSign(),
+                            transaction.Signature,
+                            transaction.PublicKey);
+
                         if (!isValid)
                             return false;
                     }
                 }
             }
+
             return true;
         }
 
@@ -229,47 +233,26 @@ namespace BlockchainApp1.Services
 
             Chain.Clear();
             Balances.Clear();
-            State.Clear();
-
-            Block previousBlock = null;
 
             foreach (var line in lines)
             {
                 var block = JsonSerializer.Deserialize<Block>(line);
 
-                if (block == null)
-                    continue;
-
-                string calculatedHash =
-                    _hashingService.ComputeHash(block);
-
-                if (calculatedHash != block.Hash)
+                if (block != null)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("КРИТИЧНА ПОМИЛКА: Файл blocks.dat скомпрометовано!");
-                    Console.ResetColor();
-
-                    Chain.Clear();
-                    return;
+                    Chain.Add(block);
+                    ApplyBlockToState(block);
                 }
+            }
 
-                if (previousBlock != null)
-                {
-                    if (block.PrevHash != previousBlock.Hash)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("КРИТИЧНА ПОМИЛКА: Файл blocks.dat скомпрометовано!");
-                        Console.ResetColor();
+            if (!IsValid(Chain))
+            {
+                Chain.Clear();
+                Balances.Clear();
 
-                        Chain.Clear();
-                        return;
-                    }
-                }
-
-                Chain.Add(block);
-                ApplyBlockToState(block);
-
-                previousBlock = block;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("КРИТИЧНА ПОМИЛКА: Файл сховища скомпрометовано! Дані знищено.");
+                Console.ResetColor();
             }
         }
 
