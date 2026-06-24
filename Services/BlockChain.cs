@@ -71,8 +71,15 @@ namespace BlockchainApp1.Services
 
             if (transaction.From != "System")
             {
-                decimal senderBalance = GetBalance(transaction.From);
-                if (senderBalance < transaction.Amount + transaction.Fee)
+                decimal senderBalance = State.ContainsKey(transaction.From)
+                    ? State[transaction.From]
+                    : 0;
+
+                decimal pendingAmount = _pedingTransactions
+                    .Where(t => t.From == transaction.From)
+                    .Sum(t => t.Amount + t.Fee);
+
+                if (senderBalance - pendingAmount < transaction.Amount + transaction.Fee)
                     return false;
             }
 
@@ -162,7 +169,9 @@ namespace BlockchainApp1.Services
 
         public decimal GetBalance(string address)
         {
-            var balance = Balances.ContainsKey(address) ? Balances[address] : 0;
+            var balance = State.ContainsKey(address)
+                ? State[address]
+                : 0;
 
             foreach (var tx in _pedingTransactions)
             {
@@ -178,28 +187,29 @@ namespace BlockchainApp1.Services
             return balance;
         }
 
-        private void ApplyBlockToState(Block block) 
-        { 
+        private void ApplyBlockToState(Block block)
+        {
             foreach (var transaction in block.Transactions)
             {
                 if (transaction.From != "System")
                 {
-                    if (Balances.ContainsKey(transaction.From))
+                    if (State.ContainsKey(transaction.From))
                     {
-                        Balances[transaction.From] -= transaction.Amount + transaction.Fee;
+                        State[transaction.From] -= transaction.Amount + transaction.Fee;
                     }
                     else
                     {
-                        Balances[transaction.From] = -(transaction.Amount = transaction.Fee);
+                        State[transaction.From] = -(transaction.Amount + transaction.Fee);
                     }
                 }
-                if (Balances.ContainsKey(transaction.To))
+
+                if (State.ContainsKey(transaction.To))
                 {
-                    Balances[transaction.To] += transaction.Amount;
+                    State[transaction.To] += transaction.Amount;
                 }
                 else
                 {
-                    Balances[transaction.To] = transaction.Amount;
+                    State[transaction.To] = transaction.Amount;
                 }
             }
         }
@@ -214,18 +224,52 @@ namespace BlockchainApp1.Services
         {
             if (!File.Exists(_storageFilePath))
                 return;
+
             var lines = File.ReadAllLines(_storageFilePath);
+
             Chain.Clear();
             Balances.Clear();
+            State.Clear();
+
+            Block previousBlock = null;
 
             foreach (var line in lines)
             {
                 var block = JsonSerializer.Deserialize<Block>(line);
-                if (block != null)
+
+                if (block == null)
+                    continue;
+
+                string calculatedHash =
+                    _hashingService.ComputeHash(block);
+
+                if (calculatedHash != block.Hash)
                 {
-                    Chain.Add(block);
-                    ApplyBlockToState(block);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("КРИТИЧНА ПОМИЛКА: Файл blocks.dat скомпрометовано!");
+                    Console.ResetColor();
+
+                    Chain.Clear();
+                    return;
                 }
+
+                if (previousBlock != null)
+                {
+                    if (block.PrevHash != previousBlock.Hash)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("КРИТИЧНА ПОМИЛКА: Файл blocks.dat скомпрометовано!");
+                        Console.ResetColor();
+
+                        Chain.Clear();
+                        return;
+                    }
+                }
+
+                Chain.Add(block);
+                ApplyBlockToState(block);
+
+                previousBlock = block;
             }
         }
 
