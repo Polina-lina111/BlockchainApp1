@@ -7,38 +7,94 @@ namespace BlockchainApp1
     {
         static void Main(string[] args)
         {
+            RunConsensusTest();
+        }
+
+        public static void RunConsensusTest()
+        {
+
+            var localNode = new BlockChain(1);
+            var hackerNode = new BlockChain(1);
+            var honestNetwork = new BlockChain(1);
+
             var walletService = new WalletService();
-            var transactionService = new TransactionService(walletService);
-            var blockChain = new BlockChain(1);
 
             var miner = walletService.CreateWallet("Miner");
-            var alice = walletService.CreateWallet("Alice");
+            var hacker = walletService.CreateWallet("Hacker");
+            var pool = walletService.CreateWallet("Pool");
 
-            // Майнер отримує винагороду 50 монет за кожен блок
-            blockChain.MinePandingTransaction(miner.Address, 5);
-            blockChain.MinePandingTransaction(miner.Address, 5);
+            // ======================================
+            // LOCAL NODE (2 валідні блоки)
+            // ======================================
 
-            Console.WriteLine("Баланс майнера після майнінгу:");
-            Console.WriteLine(blockChain.GetBalance(miner.Address));
+            localNode.MinePandingTransaction(miner.Address, 50);
+            localNode.MinePandingTransaction(miner.Address, 50);
 
-            // Створюємо транзакцію
-            var tx = transactionService.CreateTransaction(
-                miner,
-                alice.Address,
-                20,
-                1
-            );
+            // ======================================
+            // HACKER NODE
+            // ======================================
 
-            bool added = blockChain.AddTransaction(tx);
+            hackerNode.MinePandingTransaction(hacker.Address, 50);
 
-            Console.WriteLine("Транзакція додана: " + added);
+            for (int i = 0; i < 5; i++)
+            {
+                hackerNode.Chain.Add(
+                    new Block(
+                        hackerNode.Chain.Count,
+                        new List<Transaction>(),
+                        "fake_prev_hash",
+                        1)
+                    {
+                        Hash = "HACKED_HASH"
+                    });
+            }
 
-            // Майнимо блок із транзакцією
-            blockChain.MinePandingTransaction(miner.Address, 5);
+            // ======================================
+            // HONEST NETWORK (4 валідні блоки)
+            // ======================================
 
-            Console.WriteLine();
-            Console.WriteLine("Баланс Miner: " + blockChain.GetBalance(miner.Address));
-            Console.WriteLine("Баланс Alice: " + blockChain.GetBalance(alice.Address));
+            honestNetwork.MinePandingTransaction(pool.Address, 50);
+            honestNetwork.MinePandingTransaction(pool.Address, 50);
+            honestNetwork.MinePandingTransaction(pool.Address, 50);
+            honestNetwork.MinePandingTransaction(pool.Address, 50);
+
+            Console.WriteLine("\n===== QA CONSENSUS CHECK =====\n");
+
+            // ======================================
+            // Перевірка 1
+            // ======================================
+
+            bool hackerResult = localNode.ReplaceChain(hackerNode.Chain);
+
+            Console.WriteLine("Перевірка 1 (Стійкість до атаки)");
+            Console.WriteLine("ReplaceChain result = " + hackerResult);
+            Console.WriteLine("Local chain length = " + localNode.Chain.Count);
+
+            // ======================================
+            // Перевірка 2
+            // ======================================
+
+            bool honestResult = localNode.ReplaceChain(honestNetwork.Chain);
+
+            Console.WriteLine("\nПеревірка 2 (Консенсус Накамото)");
+            Console.WriteLine("ReplaceChain result = " + honestResult);
+            Console.WriteLine("Local chain length = " + localNode.Chain.Count);
+
+            // ======================================
+            // Перевірка 3
+            // ======================================
+
+            Console.WriteLine("\nПеревірка 3 (Баланс Pool)");
+
+            if (localNode.Balances.ContainsKey(pool.Address))
+            {
+                Console.WriteLine("Pool balance = " +
+                                  localNode.Balances[pool.Address]);
+            }
+            else
+            {
+                Console.WriteLine("Pool wallet not found");
+            }
         }
     }
 }
